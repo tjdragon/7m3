@@ -1,0 +1,18 @@
+# Rust build artifacts
+target/
+**/*.rs.bk
+Cargo.lock
+
+# Environment variables
+.env
+!.env.example
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker volume mounts / temp files
+*.tmp
+*.log

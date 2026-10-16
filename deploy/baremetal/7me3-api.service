@@ -1,0 +1,36 @@
+[Unit]
+Description=7ME3 API Service (Bare Metal & Hardened Linux Deployment)
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=appuser
+Group=appuser
+
+# Factor III: Config in Environment
+EnvironmentFile=/etc/default/7me3-api
+
+# Secure Secrets In-Memory tmpfs Storage (Prevents disk leaks)
+RuntimeDirectory=7me3-secrets
+RuntimeDirectoryMode=0700
+Environment=SECRETS_DIR=/run/7me3-secrets
+Environment=SECRETS_PROVIDER=file
+
+ExecStart=/usr/local/bin/api-service
+
+# Factor IX: Disposability (Graceful Shutdown)
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+Restart=on-failure
+RestartSec=5s
+
+# Hardening / Sandboxing
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

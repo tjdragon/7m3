@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 7me3-api-service
+  labels:
+    app.kubernetes.io/name: 7me3-api-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: 7me3-api-service
+  template:
+    metadata:
+      labels:
+        app: 7me3-api-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+      containers:
+        - name: api-service
+          image: 7me3-api-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: 7me3-config
+          env:
+            - name: DATABASE_URL
+              value: "secret://database-url"
+          volumeMounts:
+            - name: secrets-volume
+              mountPath: /etc/secrets
+              readOnly: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: secrets-volume
+          secret:
+            secretName: 7me3-secrets
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: 7me3-api-service
+spec:
+  selector:
+    app: 7me3-api-service
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

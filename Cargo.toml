@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/platform",
+    "services/api-service",
+    "services/worker-service",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["7Me3 Architecture Team"]
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+# Internal crates
+platform = { path = "crates/platform" }
+
+# Async runtime & Web
+tokio = { version = "1.43", features = ["full"] }
+axum = { version = "0.8", features = ["macros"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
+
+# Serialization & Core types
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Database
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "macros", "migrate", "uuid", "chrono"] }
+
+# Logging & Telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# Utilities
+async-trait = "0.1"
+thiserror = "2.0"
+dotenvy = "0.15"
+base64 = "0.22"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }

@@ -1,0 +1,89 @@
+services:
+  # Factor IV: Backing service - Postgres
+  postgres:
+    image: postgres:16-alpine
+    container_name: 7me3-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orders_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d orders_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Factor IV: Backing service - Kafka-compatible event broker (Redpanda)
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.2
+    container_name: 7me3-redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --memory 512M
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+    ports:
+      - "19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Edge / Public Web Microservice
+  api-service:
+    build:
+      context: .
+      dockerfile: services/api-service/Dockerfile
+    container_name: 7me3-api-service
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: production
+      PORT: 8080
+      LOG_FORMAT: json
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/orders_db
+      AUTO_MIGRATE: "true"
+      SECRETS_PROVIDER: env
+      AUDIT_SECRET_KEY: APP_ENCRYPTION_KEY
+      APP_ENCRYPTION_KEY: prod-enclave-secret-key-9876543210
+      MESSAGE_BUS_BACKEND: inmemory
+      KAFKA_BROKERS: redpanda:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Downstream Asynchronous Worker Microservice
+  worker-service:
+    build:
+      context: .
+      dockerfile: services/worker-service/Dockerfile
+    container_name: 7me3-worker-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      APP_ENV: production
+      WORKER_HEALTH_PORT: 8081
+      LOG_FORMAT: json
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/orders_db
+      AUTO_MIGRATE: "false"
+      SECRETS_PROVIDER: env
+      AUDIT_SECRET_KEY: APP_ENCRYPTION_KEY
+      APP_ENCRYPTION_KEY: prod-enclave-secret-key-9876543210
+      MESSAGE_BUS_BACKEND: inmemory
+      KAFKA_BROKERS: redpanda:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
